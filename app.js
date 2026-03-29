@@ -46,7 +46,7 @@ app.get('/review/:world', async (req, res) => {
             rating: world.rating,
             description: world.description,
             reviewer: world.reviewer,
-            date: world.createdAt
+            createdAt: world.createdAt
         });
     } catch (e) {
         return res.status(400).json({
