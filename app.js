@@ -12,16 +12,32 @@ import World from './model/World.js'
 app.use(express.json());
 
 app.post('/review/:world', async (req, res) => {
+    const { reviewer, rating, description } = req.body;
     if (!validateUuid(req.params.world)) {
         return res.status(400).json({ error: "Invalid UUID" })
     }
     try {
-        const world = await World.create({
-            uuid: req.params.world,
-            rating: req.body.rating,
-            description: req.body.description,
-            reviewer: req.body.reviewer
-        })
+        let world = await World.findOne({ uuid: req.params.world });
+
+        if (!world) {
+            world = new World({
+                uuid: req.params.world,
+                description,
+                ratings: [{ reviewer, rating }]
+            });
+        } else {
+            world.description = description;
+
+            const existing = world.ratings.find(r => r.reviewer === reviewer);
+
+            if (existing) {
+                existing.rating = rating;
+            } else {
+                world.ratings.push({ reviewer, rating });
+            }
+        }
+
+        await world.save();
 
         return res.status(201).json({
             success: true,
@@ -35,18 +51,26 @@ app.post('/review/:world', async (req, res) => {
     }
 })
 
+const calculateAverage = (ratings) => {
+    if (!ratings.length) return 0;
+    const total = ratings.reduce((sum, r) => sum + r.rating, 0);
+    return total / ratings.length;
+}
+
 app.get('/review/:world', async (req, res) => {
     if (!validateUuid(req.params.world)) {
         return res.status(400).json({ error: "Invalid UUID" })
     }
     try {
         const world = await World.findOne({ uuid: req.params.world });
+        const averageRating = calculateAverage(world.ratings);
         res.status(200).json({
             uuid: world.uuid,
-            rating: world.rating,
+            rating: averageRating,
+            ratings: world.ratings,
             description: world.description,
-            reviewer: world.reviewer,
-            createdAt: world.createdAt
+            createdAt: world.createdAt,
+            updatedAt: world.updatedAt
         });
     } catch (e) {
         return res.status(400).json({
@@ -58,11 +82,16 @@ app.get('/review/:world', async (req, res) => {
 app.get('/review', async (req, res) => {
     try {
         const worlds = await World.find({})
-            .select('uuid rating description reviewer createdAt -_id') // remove meta fields
+            .select('uuid ratings description createdAt updatedAt -_id') // remove meta fields
             .lean()
             .exec();
 
-        res.status(200).json(worlds);
+        const worldsWithAvg = worlds.map(world => ({
+            ...world,
+            rating: calculateAverage(world.ratings)
+        }));
+
+        res.status(200).json(worldsWithAvg);
     } catch (e) {
         res.status(400).json({ message: e.message });
     }
