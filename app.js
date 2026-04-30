@@ -12,7 +12,7 @@ import World from './model/World.js'
 app.use(express.json());
 
 app.post('/review/:world', async (req, res) => {
-    const { reviewer, rating, description } = req.body;
+    const { reviewer, rating, review, description } = req.body;
     if (!validateUuid(req.params.world)) {
         return res.status(400).json({ error: "Invalid UUID" })
     }
@@ -23,7 +23,7 @@ app.post('/review/:world', async (req, res) => {
             world = new World({
                 uuid: req.params.world,
                 description,
-                ratings: [{ reviewer, rating }]
+                ratings: [{ reviewer, rating, review }]
             });
         } else {
             world.description = description;
@@ -32,8 +32,9 @@ app.post('/review/:world', async (req, res) => {
 
             if (existing) {
                 existing.rating = rating;
+                existing.review = review;
             } else {
-                world.ratings.push({ reviewer, rating });
+                world.ratings.push({ reviewer, rating, review });
             }
         }
 

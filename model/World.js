@@ -4,7 +4,8 @@ const { Schema, model } = mongoose;
 const ratingSchema = new Schema({
     reviewer: { type: String, required: true },
     rating: { type: Number, required: true, min: 0, max: 10 },
-}, { _id: false }); // ✅ Disable _id for ratings
+    review: { type: String, required: true },
+}, { _id: false });
 
 const worldSchema = new Schema({
     uuid: { type: String, required: true, unique: true },
