@@ -55,7 +55,7 @@ app.post('/review/:world', async (req, res) => {
 const calculateAverage = (ratings) => {
     if (!ratings.length) return 0;
     const total = ratings.reduce((sum, r) => sum + r.rating, 0);
-    return total / ratings.length;
+    return Math.round((total / ratings.length) * 10) / 10;
 }
 
 app.get('/review/:world', async (req, res) => {
