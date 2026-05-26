@@ -1,21 +1,27 @@
 {
   "name": "legitiratings",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "",
   "license": "MIT",
   "author": "",
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "dev": "nodemon app.js"
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "dependencies": {
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "mongoose": "^9.3.3",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.8.5",
+    "pg": "^8.21.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
   }
 }
