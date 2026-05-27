@@ -101,6 +101,6 @@ server.get<{ Params: GetReviewParams }>("/review", async (req, res) => {
   }
 });
 
-server.listen({ port: PORT }, () => {
+server.listen({ port: PORT, host: "0.0.0.0" }, () => {
   console.log(`listening on port ${PORT}`);
 });
