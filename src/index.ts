@@ -1,15 +1,15 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, sql } from "drizzle-orm";
-import { Rating, worldsTable } from "./db/schema.js";
-import fastify from "fastify";
-const server = fastify();
+import { Rating, worldsTable } from "./db/schema.ts";
+import { Hono } from "@hono/hono";
+const server = new Hono();
 const PORT = Number(process.env.PORT) || 3000;
 
 const db = drizzle(process.env.DATABASE_URL!);
 
 import { validate as validateUuid } from "uuid";
-import { calculateAverage } from "./util.js";
+import { calculateAverage } from "./util.ts";
 
 type PostReviewBody = {
   reviewer: string;
@@ -35,58 +35,57 @@ type GetReviewResponse = {
   updatedAt: Date;
 };
 
-server.post<{ Body: PostReviewBody; Params: PostReviewParams }>(
-  "/review/:world",
-  async (req, res) => {
-    const { reviewer, rating, review, description } = req.body;
-    if (!validateUuid(req.params.world)) {
-      return res.code(400).send({ error: "Invalid UUID" });
-    }
-    await db
-      .insert(worldsTable)
-      .values({
-        uuid: req.params.world,
+server.post("/review/:world", async (c) => {
+  const { reviewer, rating, review, description } = await c.req.json();
+  if (!validateUuid(c.req.param("world"))) {
+    c.status(400);
+    return c.json({ error: "Invalid UUID" });
+  }
+  await db
+    .insert(worldsTable)
+    .values({
+      uuid: c.req.param("world"),
+      description,
+      ratings: [
+        {
+          reviewer: reviewer,
+          rating: rating,
+          review: review,
+        },
+      ],
+    })
+    .onConflictDoUpdate({
+      target: worldsTable.uuid,
+      set: {
         description,
-        ratings: [
-          {
-            reviewer: reviewer,
-            rating: rating,
-            review: review,
-          },
-        ],
-      })
-      .onConflictDoUpdate({
-        target: worldsTable.uuid,
-        set: {
-          description,
-          ratings: sql`
+        ratings: sql`
           (
             SELECT COALESCE(jsonb_agg(r), '[]'::jsonb)
             FROM jsonb_array_elements(COALESCE(${worldsTable.ratings}, '[]'::jsonb)) r 
             WHERE r->>'reviewer' != ${reviewer}
           )
             || excluded.ratings`,
-        },
-      });
-    return res.code(201).send({ success: true });
-  },
-);
+      },
+    });
+  c.status(201);
+  return c.json({ success: true });
+});
 
-server.get<{ Params: GetReviewParams }>("/review/:world", async (req, res) => {
+server.get("/review/:world", async (c) => {
   const world = (
     await db
       .select()
       .from(worldsTable)
-      .where(eq(worldsTable.uuid, req.params.world))
+      .where(eq(worldsTable.uuid, c.req.param("world")))
   )[0] as Omit<GetReviewResponse, "rating">;
   const response: GetReviewResponse = {
     ...world,
     rating: calculateAverage(world.ratings),
   };
-  return response;
+  return c.json(response);
 });
 
-server.get<{ Params: GetReviewParams }>("/review", async (req, res) => {
+server.get("/review", async (c) => {
   try {
     const worlds = await db.select().from(worldsTable);
 
@@ -95,12 +94,11 @@ server.get<{ Params: GetReviewParams }>("/review", async (req, res) => {
       rating: calculateAverage(world.ratings),
     }));
 
-    res.code(200).send(worldsWithAvg);
+    return c.json(worldsWithAvg);
   } catch (e: any) {
-    res.code(400).send({ message: e.message });
+    c.status(500);
+    return c.json({ message: e.message });
   }
 });
 
-server.listen({ port: PORT, host: "0.0.0.0" }, () => {
-  console.log(`listening on port ${PORT}`);
-});
+Deno.serve({ port: PORT, hostname: "0.0.0.0" }, server.fetch);
